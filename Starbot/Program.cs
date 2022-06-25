@@ -1,9 +1,11 @@
 ﻿using Discord;
+using Discord.Commands;
 using Discord.WebSocket;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -11,26 +13,62 @@ namespace Starbot
 {
     public class Program
     {
-        public static Task Main(string[] args) => new Program().MainAsync();
+        // Program entry point
+        static Task Main(string[] args)
+        {
+            return new Program().MainAsync();
+        }
 
         private DiscordSocketClient _client;
-        public async Task MainAsync()
-        {
-            _client = new DiscordSocketClient();
 
-            _client.Log += Log;
+        private readonly CommandHandler _commandHandler;
+        private readonly CommandService _commands;
+        //todo: research
+        //private readonly IServiceProvider _services;
+
+        private readonly LoggingService _loggingService;
+        private Program()
+        {
+            _client = new DiscordSocketClient(new DiscordSocketConfig
+            {
+                LogLevel = LogSeverity.Info
+            });
+
+            _commands = new CommandService(new CommandServiceConfig
+            {
+                CaseSensitiveCommands = false
+            });
+
+            _loggingService = new LoggingService(_client, _commands);
+
+            _commandHandler = new CommandHandler(_client, _commands);
+            // Setup your DI container.
+            //_services = ConfigureServices();
+        }
+
+        private async Task MainAsync()
+        {
+            await _commandHandler.InstallCommandsAsync();
 
             var token = File.ReadAllText(@"D:\General\token.txt");
 
             await _client.LoginAsync(TokenType.Bot, token);
             await _client.StartAsync();
 
-            await Task.Delay(-1);
+            await Task.Run(EndMain);
         }
 
-        private Task Log(LogMessage msg)
+        private Task EndMain()
         {
-            Console.WriteLine(msg.ToString());
+            string hostInput;
+            do
+            {
+                hostInput = Console.ReadLine().ToLower();
+            } 
+            while ((String.Equals(hostInput, "stop") == false));
+
+            Console.WriteLine("Ending Main...");
+            _client.StopAsync();
             return Task.CompletedTask;
         }
     }
